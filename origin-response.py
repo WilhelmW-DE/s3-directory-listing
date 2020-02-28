@@ -1,5 +1,6 @@
 import boto3
-from urllib.parse import unquote
+from urllib.parse import unquote_plus
+from urllib.parse import quote_plus
 
 bucket = 's3bucketname'
 s3 = boto3.resource('s3')
@@ -47,7 +48,7 @@ def lambda_handler(event, context):
     response = event["Records"][0]["cf"]["response"]
     
     if request['uri'].endswith('/') or request['uri'] == '':
-        prefix = unquote(request['uri'][1:])
+        prefix = unquote_plus(request['uri'][1:])
         
         title = 'Index of /' + prefix
         
@@ -55,13 +56,15 @@ def lambda_handler(event, context):
         dir_pos = 1
         
         listing = [{
-            'file_name': './', 
+            'link': './',
+            'name': './', 
             'last_modified': '&nbsp;', 
             'size': 0
         }]
         if prefix != '':
             listing.insert(1, {
-                'file_name': '../', 
+                'link': '../',
+                'name': '../', 
                 'last_modified': '&nbsp;', 
                 'size': 0
             })
@@ -78,6 +81,7 @@ def lambda_handler(event, context):
             # directory
             elif '/' in file_name:
                 dir_name = file_name.split('/')[0] + '/'
+                dir_path = './' + quote_plus(file_name.split('/')[0]) + '/'
                 
                 if pre_dir == dir_name:
                     listing[dir_pos-1]['size'] += object_summary.size
@@ -85,7 +89,8 @@ def lambda_handler(event, context):
                         listing[dir_pos-1]['last_modified'] = object_summary.last_modified
                 else:
                     listing.insert(dir_pos, {
-                        'file_name': dir_name, 
+                        'link': dir_path,
+                        'name': dir_name, 
                         'last_modified': object_summary.last_modified, 
                         'size': object_summary.size
                     })
@@ -96,7 +101,8 @@ def lambda_handler(event, context):
             # file
             else:
                 listing.append({
-                    'file_name': file_name, 
+                    'link': './' + quote_plus(file_name),
+                    'name': file_name, 
                     'last_modified': object_summary.last_modified, 
                     'size': object_summary.size
                 })
@@ -110,7 +116,7 @@ def lambda_handler(event, context):
                 
             content += """
       <tr>
-        <td class="n"><a href='./""" + row['file_name'] + """'>""" + row['file_name'] + """</a></td>
+        <td class="n"><a href='""" + row['link'] + """'>""" + row['name'] + """</a></td>
         <td class="m">""" + date_fmt + """</td>
         <td class="s">""" + sizeof_fmt(row['size']) + """</td>
       </tr>
